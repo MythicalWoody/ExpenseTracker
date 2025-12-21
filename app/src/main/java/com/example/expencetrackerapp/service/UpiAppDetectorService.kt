@@ -113,8 +113,7 @@ class UpiAppDetectorService : AccessibilityService() {
         } else if (!isUpiApp && isButtonVisible) {
             // Hide button - user left UPI app
             Log.i(TAG, "❌ LEFT UPI APP - now in: $packageName")
-            //hideFloatingButton()
-            showFloatingButton(packageName)
+            hideFloatingButton()
         }
     }
     

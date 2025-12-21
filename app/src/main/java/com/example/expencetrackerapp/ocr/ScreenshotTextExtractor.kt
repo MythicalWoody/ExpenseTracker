@@ -14,8 +14,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * CRED, Paytm.
  *
  * V2 Improvements:
- * - "7-Glitch" Fix: Detects when '₹' is misread as '7'
- * - Redundancy Check: Compares multiple amount occurrences
+ * - "7-Glitch" & "T-Glitch" Fix: Detects when '₹' is misread as '7', '2', or 'T'.
+ * - Robust Amount Search: Includes anchor detection ("Sent"/"Received") and high-confidence
+ * patterns.
  */
 object ScreenshotTextExtractor {
 
@@ -50,7 +51,7 @@ object ScreenshotTextExtractor {
                                     else -> parseSamsungWallet(result)
                                 }
 
-                        // Final sanity check for the "7" glitch
+                        // Final sanity check for the "7" glitch (Generic/Safety net)
                         val sanitizedAmount = sanitizeAmount(amount, result.text)
 
                         Log.i(
