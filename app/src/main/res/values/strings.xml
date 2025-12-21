@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ExpenceTrackerApp</string>
+    <string name="widget_description">Quick add expense from home screen</string>
+    <string name="accessibility_service_description">Detects when you open UPI payment apps (Samsung Wallet, PhonePe, Google Pay, CRED) and shows a floating button to quickly capture expenses from screenshots.</string>
+</resources>
