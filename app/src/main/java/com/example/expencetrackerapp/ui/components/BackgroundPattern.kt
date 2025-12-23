@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,29 +25,26 @@ import kotlin.random.Random
  */
 @Composable
 fun BackgroundPattern(modifier: Modifier = Modifier, isDarkTheme: Boolean = isSystemInDarkTheme()) {
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val screenHeight = configuration.screenHeightDp.dp
-
     // Pattern color based on theme - increased opacity for visibility
     val patternColor =
-            if (isDarkTheme) {
-                Color.White.copy(alpha = 0.08f)
-            } else {
-                Color.Black.copy(alpha = 0.12f)
-            }
-
-    // Generate random shapes with fixed seed for consistency
-    val shapes =
-            remember(screenWidth, screenHeight) {
-                generateShapes(
-                        screenWidthPx = screenWidth.value,
-                        screenHeightPx = screenHeight.value,
-                        seed = 42 // Fixed seed for consistent pattern
-                )
-            }
+        if (isDarkTheme) {
+            Color.White.copy(alpha = 0.08f)
+        } else {
+            Color.Black.copy(alpha = 0.12f)
+        }
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        // Use Canvas actual size instead of screen configuration
+        val canvasWidth = size.width
+        val canvasHeight = size.height
+
+        // Generate shapes based on actual canvas size
+        val shapes = generateShapes(
+            screenWidthPx = canvasWidth,
+            screenHeightPx = canvasHeight,
+            seed = 100 // Fixed seed for consistent pattern
+        )
+
         shapes.forEach { shape ->
             when (shape) {
                 is ShapeData.Triangle -> drawTriangle(shape, patternColor)
@@ -180,4 +178,16 @@ private fun DrawScope.drawStar(star: ShapeData.Star, color: Color) {
 
         drawPath(path = path, color = color, style = Stroke(width = 1.5f))
     }
+}
+
+@Preview(name = "Light Theme", showBackground = true)
+@Composable
+private fun BackgroundPatternLightPreview() {
+    BackgroundPattern(isDarkTheme = false)
+}
+
+@Preview(name = "Dark Theme", showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun BackgroundPatternDarkPreview() {
+    BackgroundPattern(isDarkTheme = true)
 }
