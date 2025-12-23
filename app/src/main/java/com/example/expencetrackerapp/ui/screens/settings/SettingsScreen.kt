@@ -4,6 +4,8 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,14 +14,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.expencetrackerapp.ui.theme.Primary
-import com.example.expencetrackerapp.ui.theme.Secondary
+import com.example.expencetrackerapp.ui.theme.*
 import com.example.expencetrackerapp.ui.viewmodel.ExpenseViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,10 +32,10 @@ import com.example.expencetrackerapp.ui.viewmodel.ExpenseViewModel
 fun SettingsScreen(viewModel: ExpenseViewModel, onNavigateToCategories: () -> Unit) {
     val context = LocalContext.current
 
-    var smsPermissionGranted by remember { mutableStateOf(false) }
-    var notificationPermissionGranted by remember { mutableStateOf(false) }
-    var showClearDataDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
+    var smsPermissionGranted by rememberSaveable() { mutableStateOf(false) }
+    var notificationPermissionGranted by rememberSaveable() { mutableStateOf(false) }
+    var showClearDataDialog by rememberSaveable { mutableStateOf(false) }
+    var showImportDialog by rememberSaveable { mutableStateOf(false) }
 
     val smsImportState by viewModel.smsImportState.collectAsState()
 
@@ -59,213 +64,238 @@ fun SettingsScreen(viewModel: ExpenseViewModel, onNavigateToCategories: () -> Un
         }
     }
 
-    LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+    val currentThemeMode = ThemeState.themeMode
 
-        // Permissions Section
-        item {
-            Text(
-                    text = "Permissions",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background pattern
+        com.example.expencetrackerapp.ui.components.BackgroundPattern()
 
-        item {
-            SettingsItem(
-                    icon = Icons.Filled.Sms,
-                    title = "SMS Permission",
-                    subtitle =
-                            if (smsPermissionGranted) "Granted"
-                            else "Required to read bank transactions",
-                    onClick = {
-                        smsPermissionLauncher.launch(
-                                arrayOf(
-                                        Manifest.permission.RECEIVE_SMS,
-                                        Manifest.permission.READ_SMS
-                                )
-                        )
-                    },
-                    trailing = {
-                        if (smsPermissionGranted) {
-                            Icon(
-                                    Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Primary
-                            )
-                        } else {
-                            TextButton(
-                                    onClick = {
-                                        smsPermissionLauncher.launch(
-                                                arrayOf(
-                                                        Manifest.permission.RECEIVE_SMS,
-                                                        Manifest.permission.READ_SMS
-                                                )
-                                        )
-                                    }
-                            ) { Text("Grant") }
-                        }
-                    }
-            )
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             item {
-                SettingsItem(
-                        icon = Icons.Filled.Notifications,
-                        title = "Notification Permission",
+                Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Appearance Section
+            item { SectionHeader(text = "Appearance", color = MaterialTheme.colorScheme.primary) }
+
+            item {
+                GlassSettingsItem(
+                        icon =
+                                if (currentThemeMode == ThemeMode.DARK) Icons.Filled.DarkMode
+                                else Icons.Filled.LightMode,
+                        title = "Theme",
                         subtitle =
-                                if (notificationPermissionGranted) "Granted"
-                                else "Required for categorization alerts",
+                                when (currentThemeMode) {
+                                    ThemeMode.LIGHT -> "Light Mode"
+                                    ThemeMode.DARK -> "Dark Mode"
+                                    ThemeMode.SYSTEM -> "System Default"
+                                },
+                        iconColor = MaterialTheme.colorScheme.primary,
                         onClick = {
-                            notificationPermissionLauncher.launch(
-                                    Manifest.permission.POST_NOTIFICATIONS
+                            val newMode =
+                                    when (currentThemeMode) {
+                                        ThemeMode.SYSTEM -> ThemeMode.LIGHT
+                                        ThemeMode.LIGHT -> ThemeMode.DARK
+                                        ThemeMode.DARK -> ThemeMode.SYSTEM
+                                    }
+                            ThemeState.updateThemeMode(newMode)
+                        },
+                        trailing = {
+                            Text(
+                                    text =
+                                            when (currentThemeMode) {
+                                                ThemeMode.LIGHT -> "Light"
+                                                ThemeMode.DARK -> "Dark"
+                                                ThemeMode.SYSTEM -> "System"
+                                            },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader(text = "Permissions", color = Primary)
+            }
+
+            item {
+                GlassSettingsItem(
+                        icon = Icons.Filled.Sms,
+                        title = "SMS Permission",
+                        subtitle =
+                                if (smsPermissionGranted) "Granted"
+                                else "Required to read bank transactions",
+                        iconColor = Primary,
+                        onClick = {
+                            smsPermissionLauncher.launch(
+                                    arrayOf(
+                                            Manifest.permission.RECEIVE_SMS,
+                                            Manifest.permission.READ_SMS
+                                    )
                             )
                         },
                         trailing = {
-                            if (notificationPermissionGranted) {
+                            if (smsPermissionGranted) {
                                 Icon(
                                         Icons.Filled.CheckCircle,
-                                        contentDescription = null,
-                                        tint = Primary
+                                        null,
+                                        tint = Success,
+                                        modifier = Modifier.size(22.dp)
                                 )
                             } else {
                                 TextButton(
                                         onClick = {
-                                            notificationPermissionLauncher.launch(
-                                                    Manifest.permission.POST_NOTIFICATIONS
+                                            smsPermissionLauncher.launch(
+                                                    arrayOf(
+                                                            Manifest.permission.RECEIVE_SMS,
+                                                            Manifest.permission.READ_SMS
+                                                    )
                                             )
                                         }
-                                ) { Text("Grant") }
+                                ) { Text("Grant", fontWeight = FontWeight.SemiBold) }
                             }
                         }
                 )
             }
-        }
 
-        // SMS Import Section
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                    text = "Import",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                item {
+                    GlassSettingsItem(
+                            icon = Icons.Filled.Notifications,
+                            title = "Notification Permission",
+                            subtitle =
+                                    if (notificationPermissionGranted) "Granted"
+                                    else "Required for alerts",
+                            iconColor = Primary,
+                            onClick = {
+                                notificationPermissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                )
+                            },
+                            trailing = {
+                                if (notificationPermissionGranted) {
+                                    Icon(
+                                            Icons.Filled.CheckCircle,
+                                            null,
+                                            tint = Success,
+                                            modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    TextButton(
+                                            onClick = {
+                                                notificationPermissionLauncher.launch(
+                                                        Manifest.permission.POST_NOTIFICATIONS
+                                                )
+                                            }
+                                    ) { Text("Grant", fontWeight = FontWeight.SemiBold) }
+                                }
+                            }
+                    )
+                }
+            }
 
-        item {
-            val isImporting = smsImportState is ExpenseViewModel.SmsImportState.Importing
-            SettingsItem(
-                    icon = Icons.Filled.ImportExport,
-                    title = "Import Old SMS",
-                    subtitle =
-                            if (isImporting) "Importing..."
-                            else "Scan SMS inbox for bank transactions",
-                    onClick = {
-                        if (!isImporting) {
-                            viewModel.importHistoricalSms(daysBack = 365)
+            // Import Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader(text = "Import", color = Accent)
+            }
+
+            item {
+                val isImporting = smsImportState is ExpenseViewModel.SmsImportState.Importing
+                GlassSettingsItem(
+                        icon = Icons.Filled.ImportExport,
+                        title = "Import Old SMS",
+                        subtitle =
+                                if (isImporting) "Importing..."
+                                else "Scan SMS inbox for transactions",
+                        iconColor = Accent,
+                        onClick = {
+                            if (!isImporting) viewModel.importHistoricalSms(daysBack = 365)
+                        },
+                        trailing = {
+                            if (isImporting) {
+                                CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        strokeWidth = 2.dp
+                                )
+                            }
                         }
-                    },
-                    trailing = {
-                        if (isImporting) {
-                            CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Filled.Sync, contentDescription = null, tint = Primary)
-                        }
-                    }
-            )
-        }
+                )
+            }
 
-        // Data Section
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                    text = "Data",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+            // Data Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader(text = "Data", color = Info)
+            }
 
-        item {
-            SettingsItem(
-                    icon = Icons.Filled.Category,
-                    title = "Manage Categories",
-                    subtitle = "Add, edit or remove categories",
-                    onClick = onNavigateToCategories
-            )
-        }
+            item {
+                GlassSettingsItem(
+                        icon = Icons.Filled.Category,
+                        title = "Manage Categories",
+                        subtitle = "Add, edit or remove categories",
+                        iconColor = Info,
+                        onClick = onNavigateToCategories
+                )
+            }
 
-        item {
-            SettingsItem(
-                    icon = Icons.Filled.FileDownload,
-                    title = "Export Data",
-                    subtitle = "Export expenses to CSV file",
-                    onClick = {
-                        // TODO: Implement export
-                    }
-            )
-        }
+            item {
+                GlassSettingsItem(
+                        icon = Icons.Filled.FileDownload,
+                        title = "Export Data",
+                        subtitle = "Export expenses to CSV file",
+                        iconColor = Info,
+                        onClick = { /* TODO */}
+                )
+            }
 
-        // Danger Zone
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                    text = "Danger Zone",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Secondary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+            // Danger Zone
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader(text = "Danger Zone", color = Secondary)
+            }
 
-        item {
-            SettingsItem(
-                    icon = Icons.Filled.DeleteForever,
-                    title = "Clear All Data",
-                    subtitle = "Remove all expenses and learned mappings",
-                    onClick = { showClearDataDialog = true },
-                    iconTint = Secondary
-            )
-        }
+            item {
+                GlassSettingsItem(
+                        icon = Icons.Filled.DeleteForever,
+                        title = "Clear All Data",
+                        subtitle = "Remove all expenses and mappings",
+                        iconColor = Secondary,
+                        onClick = { showClearDataDialog = true }
+                )
+            }
 
-        // About Section
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                    text = "About",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+            // About Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader(text = "About", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
 
-        item {
-            SettingsItem(
-                    icon = Icons.Filled.Info,
-                    title = "Expense Tracker",
-                    subtitle = "Version 1.0 • Made with ❤️",
-                    onClick = {}
-            )
-        }
+            item {
+                GlassSettingsItem(
+                        icon = Icons.Filled.Info,
+                        title = "Expense Tracker",
+                        subtitle = "Version 1.0",
+                        iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        onClick = {}
+                )
+            }
 
-        item { Spacer(modifier = Modifier.height(80.dp)) }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
     }
 
     // Import Result Dialog
@@ -281,10 +311,10 @@ fun SettingsScreen(viewModel: ExpenseViewModel, onNavigateToCategories: () -> Un
                         title = { Text("Import Complete!") },
                         text = {
                             Column {
-                                Text("📱 SMS scanned: ${state.totalSmsRead}")
-                                Text("🏦 Bank SMS found: ${state.bankSmsFound}")
-                                Text("✅ Transactions imported: ${state.transactionsImported}")
-                                Text("⏭️ Duplicates skipped: ${state.duplicatesSkipped}")
+                                Text("SMS scanned: ${state.totalSmsRead}")
+                                Text("Bank SMS found: ${state.bankSmsFound}")
+                                Text("Transactions imported: ${state.transactionsImported}")
+                                Text("Duplicates skipped: ${state.duplicatesSkipped}")
                             }
                         },
                         confirmButton = {
@@ -327,15 +357,12 @@ fun SettingsScreen(viewModel: ExpenseViewModel, onNavigateToCategories: () -> Un
                 title = { Text("Clear All Data?") },
                 text = {
                     Text(
-                            "This will permanently delete all your expenses, categories, and learned merchant mappings. This action cannot be undone."
+                            "This will permanently delete all your expenses. This action cannot be undone."
                     )
                 },
                 confirmButton = {
                     TextButton(
-                            onClick = {
-                                // TODO: Implement clear data
-                                showClearDataDialog = false
-                            },
+                            onClick = { showClearDataDialog = false },
                             colors = ButtonDefaults.textButtonColors(contentColor = Secondary)
                     ) { Text("Delete All") }
                 },
@@ -347,31 +374,81 @@ fun SettingsScreen(viewModel: ExpenseViewModel, onNavigateToCategories: () -> Un
 }
 
 @Composable
-private fun SettingsItem(
+private fun SectionHeader(text: String, color: Color) {
+    Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+            modifier = Modifier.padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun GlassSettingsItem(
         icon: ImageVector,
         title: String,
         subtitle: String,
+        iconColor: Color,
         onClick: () -> Unit,
-        trailing: @Composable (() -> Unit)? = null,
-        iconTint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant
+        trailing: @Composable (() -> Unit)? = null
 ) {
-    Card(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Box(
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable(onClick = onClick)
     ) {
+        // Subtle color tint
+        Box(
+                modifier =
+                        Modifier.matchParentSize()
+                                .background(
+                                        brush =
+                                                Brush.horizontalGradient(
+                                                        colors =
+                                                                listOf(
+                                                                        iconColor.copy(
+                                                                                alpha = 0.04f
+                                                                        ),
+                                                                        Color.Transparent
+                                                                )
+                                                )
+                                )
+        )
+
         Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = iconTint)
+            Box(
+                    modifier =
+                            Modifier.size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(iconColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(22.dp)
+                )
+            }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -387,7 +464,7 @@ private fun SettingsItem(
                 Icon(
                         Icons.Filled.ChevronRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             }
         }

@@ -16,93 +16,120 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = Color.White,
-    primaryContainer = PrimaryDark,
-    onPrimaryContainer = Color.White,
-    
-    secondary = Secondary,
-    onSecondary = Color.White,
-    secondaryContainer = SecondaryDark,
-    onSecondaryContainer = Color.White,
-    
-    tertiary = Info,
-    onTertiary = Color.White,
-    
-    background = DarkBackground,
-    onBackground = TextPrimary,
-    
-    surface = DarkSurface,
-    onSurface = TextPrimary,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = TextSecondary,
-    
-    error = Error,
-    onError = Color.White,
-    
-    outline = DarkSurfaceVariant,
-    outlineVariant = TextTertiary
-)
+// ============================================================================
+// 🎨 DARK COLOR SCHEME - Deep, Rich, Premium
+// ============================================================================
+private val DarkColorScheme =
+        darkColorScheme(
+                primary = Primary,
+                onPrimary = Color.White,
+                primaryContainer = PrimaryDark,
+                onPrimaryContainer = PrimaryLight,
+                secondary = Secondary,
+                onSecondary = Color.White,
+                secondaryContainer = SecondaryDark,
+                onSecondaryContainer = SecondaryLight,
+                tertiary = Accent,
+                onTertiary = Color.White,
+                tertiaryContainer = AccentDark,
+                onTertiaryContainer = AccentLight,
+                background = DarkBackground,
+                onBackground = TextPrimary,
+                surface = DarkSurface,
+                onSurface = TextPrimary,
+                surfaceVariant = DarkSurfaceVariant,
+                onSurfaceVariant = TextSecondary,
+                surfaceTint = Primary.copy(alpha = 0.1f),
+                error = Error,
+                onError = Color.White,
+                errorContainer = Error.copy(alpha = 0.2f),
+                onErrorContainer = Error,
+                outline = DarkSurfaceVariant,
+                outlineVariant = TextTertiary,
+                scrim = Color.Black.copy(alpha = 0.5f),
+                inverseSurface = TextPrimary,
+                inverseOnSurface = DarkBackground,
+                inversePrimary = PrimaryDark
+        )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Primary,
-    onPrimary = Color.White,
-    primaryContainer = PrimaryLight,
-    onPrimaryContainer = Color.White,
-    
-    secondary = Secondary,
-    onSecondary = Color.White,
-    secondaryContainer = SecondaryLight,
-    onSecondaryContainer = Color.White,
-    
-    tertiary = Info,
-    onTertiary = Color.White,
-    
-    background = LightBackground,
-    onBackground = TextPrimaryLight,
-    
-    surface = LightSurface,
-    onSurface = TextPrimaryLight,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = TextSecondaryLight,
-    
-    error = Error,
-    onError = Color.White,
-    
-    outline = LightSurfaceVariant,
-    outlineVariant = TextTertiaryLight
-)
+// ============================================================================
+// ☀️ LIGHT COLOR SCHEME - Clean, Bright, Modern
+// ============================================================================
+private val LightColorScheme =
+        lightColorScheme(
+                primary = Primary,
+                onPrimary = Color.White,
+                primaryContainer = PrimaryLight.copy(alpha = 0.2f),
+                onPrimaryContainer = PrimaryDark,
+                secondary = Secondary,
+                onSecondary = Color.White,
+                secondaryContainer = SecondaryLight.copy(alpha = 0.2f),
+                onSecondaryContainer = SecondaryDark,
+                tertiary = Accent,
+                onTertiary = Color.White,
+                tertiaryContainer = AccentLight.copy(alpha = 0.2f),
+                onTertiaryContainer = AccentDark,
+                background = LightBackground,
+                onBackground = TextPrimaryLight,
+                surface = LightSurface,
+                onSurface = TextPrimaryLight,
+                surfaceVariant = LightSurfaceVariant,
+                onSurfaceVariant = TextSecondaryLight,
+                surfaceTint = Primary.copy(alpha = 0.05f),
+                error = Error,
+                onError = Color.White,
+                errorContainer = Error.copy(alpha = 0.1f),
+                onErrorContainer = Error,
+                outline = LightSurfaceVariant,
+                outlineVariant = TextTertiaryLight,
+                scrim = Color.Black.copy(alpha = 0.3f),
+                inverseSurface = TextPrimaryLight,
+                inverseOnSurface = LightBackground,
+                inversePrimary = PrimaryLight
+        )
 
 @Composable
 fun ExpenceTrackerAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = false, // Disabled to use our custom theme
-    content: @Composable () -> Unit
+        themeMode: ThemeMode = ThemeMode.SYSTEM,
+        // Dynamic color is available on Android 12+
+        dynamicColor: Boolean = false, // Disabled to use our custom theme
+        content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    // Determine if dark theme should be used
+    val systemInDarkTheme = isSystemInDarkTheme()
+    val darkTheme =
+            when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> systemInDarkTheme
+            }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-    
+    val colorScheme =
+            when {
+                dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                    val context = LocalContext.current
+                    if (darkTheme) dynamicDarkColorScheme(context)
+                    else dynamicLightColorScheme(context)
+                }
+                darkTheme -> DarkColorScheme
+                else -> LightColorScheme
+            }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // Make status bar transparent for immersive experience
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
+
+            // Set status bar icons to dark/light based on theme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

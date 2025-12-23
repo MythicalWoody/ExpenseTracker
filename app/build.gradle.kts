@@ -66,7 +66,13 @@ dependencies {
     implementation(libs.vico.compose.m3)
     
     // ML Kit OCR for screenshot text extraction
+    // ML Kit OCR for screenshot text extraction
     implementation(libs.mlkit.text.recognition)
+
+    // Glassmorphism
+    implementation(libs.haze)
+    implementation(libs.haze.materials)
+
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

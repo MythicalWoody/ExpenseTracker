@@ -40,6 +40,7 @@ import com.example.expencetrackerapp.ui.screens.statistics.StatisticsScreen
 import com.example.expencetrackerapp.ui.screens.transactions.TransactionsScreen
 import com.example.expencetrackerapp.ui.theme.ExpenceTrackerAppTheme
 import com.example.expencetrackerapp.ui.theme.Primary
+import com.example.expencetrackerapp.ui.theme.ThemeState
 import com.example.expencetrackerapp.ui.viewmodel.ExpenseViewModel
 
 class MainActivity : ComponentActivity() {
@@ -55,7 +56,8 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            ExpenceTrackerAppTheme {
+            val currentThemeMode = ThemeState.themeMode
+            ExpenceTrackerAppTheme(themeMode = currentThemeMode) {
                 ExpenseTrackerApp(
                         initialExpenseId =
                                 if (navigateTo == NotificationHelper.NAV_EDIT_EXPENSE &&
@@ -114,7 +116,8 @@ fun ExpenseTrackerApp(initialExpenseId: Long? = null) {
 
     // Determine if bottom bar should be shown
     val showBottomBar =
-            currentRoute in listOf("dashboard", "transactions", "statistics", "settings")
+            currentRoute in
+                    listOf("dashboard", "transactions", "statistics", "settings", "add_expense")
 
     // Navigate to edit expense if launched from notification
     LaunchedEffect(initialExpenseId) {
