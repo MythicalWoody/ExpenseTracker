@@ -35,24 +35,50 @@ import com.example.expencetrackerapp.util.DateUtils
 fun ExpenseCard(
     expense: Expense,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    useGlass: Boolean = false
 ) {
     val source = detectBankSource(expense.smsBody, expense.accountNumber)
     val isExpense = expense.transactionType == TransactionType.DEBIT
     val categoryColor = getCategoryColor(expense.category)
     
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(18.dp)
-            )
-            .clickable(onClick = onClick)
-    ) {
+    if (useGlass) {
+        GlassRefractiveBox(
+            modifier = modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(18.dp),
+            warpStrength = 0.08f,
+            edgeThickness = 0.05f
+        ) {
+            ExpenseCardContent(expense, categoryColor, source, isExpense)
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+                .clickable(onClick = onClick)
+        ) {
+            ExpenseCardContent(expense, categoryColor, source, isExpense)
+        }
+    }
+}
+
+@Composable
+private fun ExpenseCardContent(
+    expense: Expense,
+    categoryColor: Color,
+    source: String?,
+    isExpense: Boolean
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
         // Subtle category tint
         Box(
             modifier = Modifier
