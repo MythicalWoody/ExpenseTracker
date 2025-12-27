@@ -1,6 +1,7 @@
 package com.example.expencetrackerapp.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -26,17 +27,39 @@ import kotlin.random.Random
 @Composable
 fun BackgroundPattern(modifier: Modifier = Modifier, isDarkTheme: Boolean = isSystemInDarkTheme()) {
     // Pattern color based on theme - increased opacity for visibility
-    val patternColor =
+    val colors =
         if (isDarkTheme) {
-            Color.White.copy(alpha = 0.08f)
+            listOf(
+                Color(0xFFE91E63), // Pink
+                Color(0xFF9C27B0), // Purple
+                Color(0xFF2196F3), // Blue
+                Color(0xFF00BCD4), // Cyan
+                Color(0xFFFF9800)  // Orange
+            )
         } else {
-            Color.Black.copy(alpha = 0.12f)
+            listOf(
+                Color(0xFFE91E63).copy(alpha = 0.6f),
+                Color(0xFF9C27B0).copy(alpha = 0.6f),
+                Color(0xFF2196F3).copy(alpha = 0.6f)
+            )
         }
 
-    Canvas(modifier = modifier.fillMaxSize()) {
+    Canvas(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black)) {
         // Use Canvas actual size instead of screen configuration
         val canvasWidth = size.width
         val canvasHeight = size.height
+        
+        // Draw a base gradient mesh
+        drawRect(
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF120024), // Deep Purple
+                    Color(0xFF240012)  // Deep Red
+                )
+            )
+        )
 
         // Generate shapes based on actual canvas size
         val shapes = generateShapes(
@@ -45,12 +68,14 @@ fun BackgroundPattern(modifier: Modifier = Modifier, isDarkTheme: Boolean = isSy
             seed = 100 // Fixed seed for consistent pattern
         )
 
-        shapes.forEach { shape ->
+        shapes.forEachIndexed { index, shape ->
+            val randomColor = colors[index % colors.size].copy(alpha = 0.8f)
+            
             when (shape) {
-                is ShapeData.Triangle -> drawTriangle(shape, patternColor)
-                is ShapeData.Circle -> drawCircle(shape, patternColor)
-                is ShapeData.ChatBubble -> drawChatBubble(shape, patternColor)
-                is ShapeData.Star -> drawStar(shape, patternColor)
+                is ShapeData.Triangle -> drawTriangle(shape, randomColor)
+                is ShapeData.Circle -> drawCircle(shape, randomColor)
+                is ShapeData.ChatBubble -> drawChatBubble(shape, randomColor)
+                is ShapeData.Star -> drawStar(shape, randomColor)
             }
         }
     }
@@ -104,7 +129,8 @@ private fun DrawScope.drawTriangle(triangle: ShapeData.Triangle, color: Color) {
                     lineTo(triangle.x + triangle.size / 2, triangle.y + triangle.size / 2)
                     close()
                 }
-        drawPath(path = path, color = color, style = Stroke(width = 1.5f))
+        // Fill instead of stroke for more color density
+        drawPath(path = path, color = color)
     }
 }
 
@@ -114,7 +140,7 @@ private fun DrawScope.drawCircle(circle: ShapeData.Circle, color: Color) {
             color = color,
             radius = circle.size / 2,
             center = Offset(circle.x, circle.y),
-            style = Stroke(width = 1.5f)
+            // Filled circle
     )
 }
 
@@ -149,7 +175,7 @@ private fun DrawScope.drawChatBubble(bubble: ShapeData.ChatBubble, color: Color)
                     quadraticBezierTo(left, top, left + cornerRadius, top)
                     close()
                 }
-        drawPath(path = path, color = color, style = Stroke(width = 1.5f))
+        drawPath(path = path, color = color)
     }
 }
 
@@ -176,7 +202,7 @@ private fun DrawScope.drawStar(star: ShapeData.Star, color: Color) {
         }
         path.close()
 
-        drawPath(path = path, color = color, style = Stroke(width = 1.5f))
+        drawPath(path = path, color = color)
     }
 }
 

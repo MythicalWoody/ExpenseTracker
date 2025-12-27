@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.expencetrackerapp.data.database.entities.Expense
 import com.example.expencetrackerapp.ui.components.EmptyState
 import com.example.expencetrackerapp.ui.components.ExpenseCard
@@ -34,10 +35,17 @@ fun TransactionsScreen(viewModel: ExpenseViewModel, onExpenseClick: (Long) -> Un
 
         Scaffold { paddingValues ->
                 Box(modifier = Modifier.fillMaxSize()) {
-                        // Background pattern
-                        com.example.expencetrackerapp.ui.components.BackgroundPattern()
+                        // Background pattern (strictly background)
+                        com.example.expencetrackerapp.ui.components.BackgroundPattern(
+                            modifier = Modifier.zIndex(0f)
+                        )
 
-                        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .zIndex(1f) // Ensure content is above background
+                        ) {
                                 // Header
                                 Column(
                                         modifier =
