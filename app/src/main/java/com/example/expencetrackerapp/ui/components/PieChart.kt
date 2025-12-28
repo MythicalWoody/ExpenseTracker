@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.example.expencetrackerapp.data.database.dao.CategorySpending
 import com.example.expencetrackerapp.ui.theme.getCategoryColor
 import com.example.expencetrackerapp.util.CurrencyFormatter
+import androidx.compose.ui.graphics.Brush
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -73,12 +74,9 @@ fun InteractivePieChart(
         }
     }
     
-    Card(
+    GlassRefractiveBox(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -131,17 +129,16 @@ fun InteractivePieChart(
                         val isSelected = selectedIndex == index
                         val animatedSweep = slice.sweepAngle * animatedProgress.value
                         
-                        drawArc(
-                            color = slice.color.copy(alpha = if (isSelected) 1f else 0.85f),
+                        // Draw glassmorphic arc with category color
+                        drawGlassmorphicArc(
+                            color = slice.color,
                             startAngle = slice.startAngle,
                             sweepAngle = animatedSweep,
-                            useCenter = false,
                             topLeft = topLeft,
                             size = arcSize,
-                            style = Stroke(
-                                width = if (isSelected) strokeWidth + 8.dp.toPx() else strokeWidth,
-                                cap = StrokeCap.Butt
-                            )
+                            strokeWidth = strokeWidth,
+                            isSelected = isSelected,
+                            glassIntensity = 0.75f
                         )
                     }
                 }
@@ -227,10 +224,16 @@ private fun LegendItem(
     percentage: Float,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    GlassRefractiveBox(
         modifier = modifier.padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        shape = RoundedCornerShape(12.dp),
+        rimWidth = 1.dp,
+        glassThickness = 4.dp
     ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Box(
             modifier = Modifier
                 .size(12.dp)
@@ -251,6 +254,7 @@ private fun LegendItem(
             fontWeight = FontWeight.Medium,
             color = color
         )
+    }
     }
 }
 

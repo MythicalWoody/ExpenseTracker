@@ -4,11 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
@@ -21,8 +23,12 @@ import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -32,6 +38,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.expencetrackerapp.notification.NotificationHelper
+import com.example.expencetrackerapp.ui.components.GlassRefractiveBox
+import com.example.expencetrackerapp.ui.components.LocalHazeState
 import com.example.expencetrackerapp.ui.navigation.Screen
 import com.example.expencetrackerapp.ui.screens.addexpense.AddExpenseScreen
 import com.example.expencetrackerapp.ui.screens.dashboard.DashboardScreen
@@ -42,6 +50,9 @@ import com.example.expencetrackerapp.ui.theme.ExpenceTrackerAppTheme
 import com.example.expencetrackerapp.ui.theme.Primary
 import com.example.expencetrackerapp.ui.theme.ThemeState
 import com.example.expencetrackerapp.ui.viewmodel.ExpenseViewModel
+import com.example.expencetrackerapp.util.LocalDeviceRotation
+import com.example.expencetrackerapp.util.rememberDeviceRotation
+import dev.chrisbanes.haze.HazeState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +60,9 @@ class MainActivity : ComponentActivity() {
 
         // Create notification channel
         NotificationHelper.createNotificationChannel(this)
+
+        // Initialize Theme Persistence
+        ThemeState.init(this)
 
         // Handle deep link from notification
         val expenseIdFromNotification = intent.getLongExtra(NotificationHelper.EXTRA_EXPENSE_ID, -1)
@@ -88,6 +102,10 @@ fun ExpenseTrackerApp(initialExpenseId: Long? = null) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Create shared HazeState and RotationState
+    val hazeState = remember { HazeState() }
+    val rotationState = rememberDeviceRotation()
+
     // Define bottom nav items explicitly here
     val bottomNavItems = remember {
         listOf(
@@ -126,17 +144,97 @@ fun ExpenseTrackerApp(initialExpenseId: Long? = null) {
         }
     }
 
-    Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            bottomBar = {
-                AnimatedVisibility(
-                        visible = showBottomBar,
-                        enter = slideInVertically(initialOffsetY = { it }),
-                        exit = slideOutVertically(targetOffsetY = { it })
+    CompositionLocalProvider(
+            LocalHazeState provides hazeState,
+            LocalDeviceRotation provides rotationState.value
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        // Empty bottomBar to allow content to extend behind the floating bar
+                        // We handle the visual bottom bar manually in the Box
+                    }
+            ) { innerPadding ->
+                NavHost(
+                        navController = navController,
+                        startDestination = Screen.Dashboard.route,
+                        modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable(Screen.Dashboard.route) {
+                        DashboardScreen(
+                                viewModel = viewModel,
+                                onExpenseClick = { expenseId ->
+                                    navController.navigate(
+                                            Screen.EditExpense.createRoute(expenseId)
+                                    )
+                                },
+                                onAddClick = { navController.navigate(Screen.AddExpense.route) }
+                        )
+                    }
+
+                    composable(Screen.Transactions.route) {
+                        TransactionsScreen(
+                                viewModel = viewModel,
+                                onExpenseClick = { expenseId ->
+                                    navController.navigate(
+                                            Screen.EditExpense.createRoute(expenseId)
+                                    )
+                                }
+                        )
+                    }
+
+                    composable(Screen.AddExpense.route) {
+                        AddExpenseScreen(
+                                viewModel = viewModel,
+                                expenseId = null,
+                                onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                            route = Screen.EditExpense.route,
+                            arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val expenseId = backStackEntry.arguments?.getLong("expenseId")
+                        AddExpenseScreen(
+                                viewModel = viewModel,
+                                expenseId = expenseId,
+                                onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(Screen.Statistics.route) { StatisticsScreen(viewModel = viewModel) }
+
+                    composable(Screen.Settings.route) {
+                        SettingsScreen(
+                                viewModel = viewModel,
+                                onNavigateToCategories = {
+                                    navController.navigate(Screen.Categories.route)
+                                }
+                        )
+                    }
+
+                    composable(Screen.Categories.route) {
+                        // TODO: Categories screen
+                        Text("Categories Management")
+                    }
+                }
+            }
+
+            // Glassmorphic Bottom Bar
+            if (showBottomBar) {
+                GlassRefractiveBox(
+                        modifier =
+                                Modifier.align(Alignment.BottomCenter)
+                                        .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
+                                        .fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp)
                 ) {
                     NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.height(80.dp).padding(top = 8.dp)
                     ) {
                         bottomNavItems.forEach { item ->
                             val selected = currentRoute == item.route
@@ -147,23 +245,26 @@ fun ExpenseTrackerApp(initialExpenseId: Long? = null) {
                                                 imageVector =
                                                         if (selected) item.selectedIcon
                                                         else item.unselectedIcon,
-                                                contentDescription = item.title
+                                                contentDescription = item.title,
+                                                modifier = Modifier.size(24.dp)
                                         )
                                     },
-                                    label = { Text(item.title) },
+                                    label = {
+                                        Text(
+                                                text = item.title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.labelSmall
+                                        )
+                                    },
                                     selected = selected,
                                     onClick = {
-                                        if (item.route == "add_expense") {
-                                            navController.navigate(item.route)
-                                        } else {
-                                            navController.navigate(item.route) {
-                                                popUpTo(
-                                                        navController.graph.findStartDestination()
-                                                                .id
-                                                ) { saveState = true }
-                                                launchSingleTop = true
-                                                restoreState = true
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
                                             }
+                                            launchSingleTop = true
+                                            restoreState = true
                                         }
                                     },
                                     colors =
@@ -183,63 +284,14 @@ fun ExpenseTrackerApp(initialExpenseId: Long? = null) {
                     }
                 }
             }
-    ) { innerPadding ->
-        NavHost(
-                navController = navController,
-                startDestination = Screen.Dashboard.route,
-                modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                        viewModel = viewModel,
-                        onExpenseClick = { expenseId ->
-                            navController.navigate(Screen.EditExpense.createRoute(expenseId))
-                        },
-                        onAddClick = { navController.navigate(Screen.AddExpense.route) }
+
+            // FPS Monitor Overlay
+            if (ThemeState.isFpsMeterEnabled) {
+                com.example.expencetrackerapp.ui.components.FpsMonitor(
+                        modifier =
+                                Modifier.align(Alignment.TopStart)
+                                        .padding(top = 40.dp, start = 8.dp) // Avoid status bar
                 )
-            }
-
-            composable(Screen.Transactions.route) {
-                TransactionsScreen(
-                        viewModel = viewModel,
-                        onExpenseClick = { expenseId ->
-                            navController.navigate(Screen.EditExpense.createRoute(expenseId))
-                        }
-                )
-            }
-
-            composable(Screen.AddExpense.route) {
-                AddExpenseScreen(
-                        viewModel = viewModel,
-                        expenseId = null,
-                        onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                    route = Screen.EditExpense.route,
-                    arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
-            ) { backStackEntry ->
-                val expenseId = backStackEntry.arguments?.getLong("expenseId")
-                AddExpenseScreen(
-                        viewModel = viewModel,
-                        expenseId = expenseId,
-                        onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(Screen.Statistics.route) { StatisticsScreen(viewModel = viewModel) }
-
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                        viewModel = viewModel,
-                        onNavigateToCategories = { navController.navigate(Screen.Categories.route) }
-                )
-            }
-
-            composable(Screen.Categories.route) {
-                // TODO: Categories screen
-                Text("Categories Management")
             }
         }
     }
