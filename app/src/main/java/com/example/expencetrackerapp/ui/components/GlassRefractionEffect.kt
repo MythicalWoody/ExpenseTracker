@@ -159,8 +159,8 @@ fun GlassRefractiveBox(
                                 brush = Brush.linearGradient(
                                     colors = listOf(
                                         Color.White.copy(alpha = rimStrength.coerceIn(0f, 1f)), // Configurable peak
-                                        Color.White.copy(alpha = (rimStrength * 0.5f).coerceIn(0f, 1f)), // Stronger mid-tone
-                                        Color.White.copy(alpha = (rimStrength * 0.1f).coerceIn(0f, 1f))  // Visible tail
+                                        Color.White.copy(alpha = (rimStrength * 0.3f).coerceIn(0f, 1f)), // Stronger mid-tone
+                                        Color.Black.copy(alpha = 0.15f)  // Dark shadow on the opposite side
                                     ),
                                     start = Offset(rimStartX, rimStartY),
                                     end = Offset(rimEndX, rimEndY)
@@ -174,7 +174,7 @@ fun GlassRefractiveBox(
                                 brush = Brush.linearGradient(
                                     colors = listOf(
                                         Color.White.copy(alpha = 0.05f),
-                                        Color.White.copy(alpha = 0.1f), // Subtle bottom-right reflection
+                                        Color.Transparent, // Removed white from shadow side
                                         Color.Transparent
                                     ),
                                     start = Offset(rimEndX, rimEndY), // Inverted direction
