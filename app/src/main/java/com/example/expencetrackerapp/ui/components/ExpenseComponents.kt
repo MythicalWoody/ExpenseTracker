@@ -47,9 +47,7 @@ fun ExpenseCard(
             modifier = modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
-            shape = RoundedCornerShape(18.dp),
-            warpStrength = 0.08f,
-            edgeThickness = 0.05f
+            shape = RoundedCornerShape(18.dp)
         ) {
             ExpenseCardContent(expense, categoryColor, source, isExpense)
         }

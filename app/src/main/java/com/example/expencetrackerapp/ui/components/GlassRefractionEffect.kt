@@ -1,9 +1,7 @@
 package com.example.expencetrackerapp.ui.components
 
-import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -12,152 +10,184 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
+import com.example.expencetrackerapp.util.LocalDeviceRotation
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 import org.intellij.lang.annotations.Language
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-    // Enhanced glass shader with subtle edge effects and realistic refraction
-    @Language("AGSL")
-    val GlassRefractionShader =
-            """
-    uniform shader composable;
+val LocalHazeState = compositionLocalOf<HazeState?> { null }
+
+/**
+ * Defines the direction of the virtual light source for glass refraction effects.
+ */
+enum class LightSourceDirection(val angleRad: Float) {
+    TOP_LEFT(-3f * PI.toFloat() / 4f),     // -135 degrees
+    TOP(-PI.toFloat() / 2f),               // -90 degrees
+    TOP_RIGHT(-PI.toFloat() / 4f),         // -45 degrees
+    RIGHT(0f),                             // 0 degrees
+    BOTTOM_RIGHT(PI.toFloat() / 4f),       // 45 degrees
+    BOTTOM(PI.toFloat() / 2f),             // 90 degrees
+    BOTTOM_LEFT(3f * PI.toFloat() / 4f),   // 135 degrees
+    LEFT(PI.toFloat())                     // 180 degrees
+}
+
+// Optimized Film Grain Shader
+@Language("AGSL")
+val NoiseShader = """
     uniform float2 size;
-    uniform float warpStrength;
-    uniform float edgeThickness;
+    uniform float alpha;
     
-    half4 main(float2 coord) {
-        // Normalize to UV space
-        float2 uv = coord / size;
-        
-        // Distance from center
-        float2 d = uv - 0.5;
-        float r2 = dot(d, d);
-        
-        // Barrel distortion (convex lens effect)
-        float f = 1.0 + r2 * (warpStrength * 2.0);
-        float2 refractedUV = 0.5 + (d * f);
-        
-        // Edge detection for highlight
-        float edgeDist = min(
-            min(uv.x, 1.0 - uv.x),
-            min(uv.y, 1.0 - uv.y)
-        );
-        float edgeFactor = smoothstep(0.0, edgeThickness, edgeDist);
-        
-        // Bounds check
-        if (refractedUV.x < 0.0 || refractedUV.x > 1.0 || 
-            refractedUV.y < 0.0 || refractedUV.y > 1.0) {
-            return half4(0.0, 0.0, 0.0, 0.0); // Transparent if outside bounds
-        }
-        
-        // Sample refracted background
-        half4 refracted = composable.eval(refractedUV * size);
-        
-        // Add subtle edge highlight (fresnel-like)
-        // More subtle power curve for smoother falloff
-        float fresnel = pow(1.0 - edgeFactor, 4.0) * 0.15;
-        refracted.rgb += fresnel;
-        
-        // BRIGHTNESS BOOST - This is key for the "Glass" look.
-        // Glass collects light, so the content behind it should look slightly brighter, not darker.
-        refracted.rgb *= 1.15;
-        
-        // Optional: Mix in a tiny bit of white to simulate surface reflection/milkiness
-        refracted.rgb = mix(refracted.rgb, half3(1.0), 0.05);
+    // Gold Noise function for better distribution than standard random
+    float hash(float2 xy) {
+        return fract(tan(distance(xy * 1.61803398874989484820459, xy) * xy.x) * xy.y);
+    }
 
-        return refracted;
+    half4 main(float2 coord) {
+        float noise = hash(coord);
+        // Output white noise with controlled alpha
+        return half4(1.0, 1.0, 1.0, noise * alpha);
     }
 """
 
-    @Composable
-    fun GlassRefractiveBox(
-            modifier: Modifier = Modifier,
-            shape: Shape = RoundedCornerShape(16.dp),
-            warpStrength: Float = 0.03f, // Much lower for subtle distortion
-            edgeThickness: Float = 0.1f, 
-            content: @Composable BoxScope.() -> Unit
-    ) {
-    // Only apply shader on Android 13+ (Tiramisu)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        GlassRefractiveBoxHighApi(modifier, shape, warpStrength, edgeThickness, content)
-    } else {
-        // Fallback for older devices: Simple semi-transparent box
-        Box(
-                modifier =
-                        modifier.clip(shape)
-                                .background(Color.White.copy(alpha = 0.1f))
-                                .border(1.dp, Color.White.copy(alpha = 0.2f), shape),
-                content = content
-        )
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun GlassRefractiveBoxHighApi(
-        modifier: Modifier,
-        shape: Shape,
-        warpStrength: Float,
-        edgeThickness: Float,
-        content: @Composable BoxScope.() -> Unit
+fun GlassRefractiveBox(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(16.dp),
+    lightSource: LightSourceDirection = LightSourceDirection.TOP_LEFT,
+    glareStrength: Float = 0.20f, // Controls surface reflection opacity (0.0 - 1.0)
+    rimStrength: Float = 1.0f,    // Controls edge light opacity (0.0 - 1.0)
+    rimWidth: Dp = 2.dp,          // Controls edge light thickness
+    content: @Composable BoxScope.() -> Unit
 ) {
-    val shader = remember { RuntimeShader(GlassRefractionShader) }
-    var size by remember { mutableStateOf(Size.Zero) }
+    val hazeState = LocalHazeState.current
+    val (pitch, roll) = LocalDeviceRotation.current
+
+    val noiseShader = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            RuntimeShader(NoiseShader)
+        } else {
+            null
+        }
+    }
 
     Box(
-            modifier =
-                    modifier
-                            .onSizeChanged { size = it.toSize() }
-                            .graphicsLayer {
-                                if (size.width > 0 && size.height > 0) {
-                                    shader.setFloatUniform("size", size.width, size.height)
-                                    shader.setFloatUniform("warpStrength", warpStrength)
-                                    shader.setFloatUniform("edgeThickness", edgeThickness)
-                                    renderEffect =
-                                            RenderEffect.createRuntimeShaderEffect(
-                                                            shader,
-                                                            "composable"
-                                                    )
-                                                    .asComposeRenderEffect()
-                                }
-                                clip = true
-                                this.shape = shape
-                                // shadowElevation = 8.dp.toPx() // Optional shadow
+        modifier = modifier
+            .clip(shape)
+            .then(
+                if (hazeState != null) {
+                    Modifier
+                        .hazeEffect(
+                            state = hazeState,
+                            style = HazeStyle(
+                                blurRadius = 40.dp,
+                                tint = HazeTint(Color.White.copy(alpha = 0.03f))
+                            )
+                        )
+                        .drawWithContent {
+                            // Draw content first
+                            drawContent()
+                            
+                            // Re-enable noise for texture
+                            if (noiseShader != null) {
+                                noiseShader.setFloatUniform("size", size.width, size.height)
+                                noiseShader.setFloatUniform("alpha", 0.02f)
+                                drawRect(ShaderBrush(noiseShader), blendMode = BlendMode.Overlay)
                             }
-                            .background(
-                                    brush =
-                                            Brush.verticalGradient(
-                                                    colors =
-                                                            listOf(
-                                                                    // Much more transparent!
-                                                                    // Top is very faint white
-                                                                    Color.White.copy(alpha = 0.08f),
-                                                                    // Bottom is almost clear
-                                                                    Color.White.copy(alpha = 0.01f)
-                                                            )
-                                            ),
-                                    shape = shape
+
+                            // ---------------------------------------------------------------------
+                            // CONFIGURATION: LIGHT SOURCE ANGLE
+                            // ---------------------------------------------------------------------
+                            val lightSourceBaseAngle = lightSource.angleRad
+                            
+                            // 1. DYNAMIC SURFACE SHEEN (Specular Reflection)
+                            // Increased sensitivity (3.0f) to make the glare movement hyper-evident
+                            // This exaggerates the effect so it doesn't look like a static physical reflection
+                            val glareAngle = lightSourceBaseAngle + (roll * 3.0f) - (pitch * 3.0f)
+                            
+                            val width = size.width
+                            val height = size.height
+                            val diagonal = sqrt(width * width + height * height)
+                            
+                            val glareStartX = (width / 2) + cos(glareAngle) * diagonal * 0.8f
+                            val glareStartY = (height / 2) + sin(glareAngle) * diagonal * 0.8f
+                            val glareEndX = (width / 2) - cos(glareAngle) * diagonal * 0.8f
+                            val glareEndY = (height / 2) - sin(glareAngle) * diagonal * 0.8f
+
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = glareStrength.coerceIn(0f, 1f)), // Configurable glare
+                                        Color.White.copy(alpha = (glareStrength * 0.3f).coerceIn(0f, 1f)),  // Softer falloff
+                                        Color.Transparent
+                                    ),
+                                    start = Offset(glareStartX, glareStartY),
+                                    end = Offset(glareEndX, glareEndY)
+                                )
                             )
-                            .border(
-                                    width = 1.dp,
-                                    brush =
-                                            Brush.verticalGradient(
-                                                    colors =
-                                                            listOf(
-                                                                    // Thin crisp rim light at the top
-                                                                    Color.White.copy(alpha = 0.3f),
-                                                                    // Fades out at the bottom
-                                                                    Color.White.copy(alpha = 0.05f)
-                                                            )
-                                            ),
-                                    shape = shape
+                            
+                            // 2. DYNAMIC EDGE LIGHTING (Fresnel Effect / Rim Light)
+                            val outline = shape.createOutline(size, layoutDirection, this)
+                            
+                            // Increased rim sensitivity (1.5f) so the edge light travels further on tilt
+                            val rimAngle = lightSourceBaseAngle + (roll * 1.5f) - (pitch * 1.5f)
+                            
+                            val rimStartX = (width / 2) + cos(rimAngle) * diagonal
+                            val rimStartY = (height / 2) + sin(rimAngle) * diagonal
+                            val rimEndX = (width / 2) - cos(rimAngle) * diagonal
+                            val rimEndY = (height / 2) - sin(rimAngle) * diagonal
+
+                            drawOutline(
+                                outline = outline,
+                                style = Stroke(width = rimWidth.toPx()), // Configurable width
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = rimStrength.coerceIn(0f, 1f)), // Configurable peak
+                                        Color.White.copy(alpha = (rimStrength * 0.5f).coerceIn(0f, 1f)), // Stronger mid-tone
+                                        Color.White.copy(alpha = (rimStrength * 0.1f).coerceIn(0f, 1f))  // Visible tail
+                                    ),
+                                    start = Offset(rimStartX, rimStartY),
+                                    end = Offset(rimEndX, rimEndY)
+                                )
                             )
-    ) { content() }
+                            
+                            // 3. INNER BEVEL HIGHLIGHT (Fake 3D Thickness)
+                             drawOutline(
+                                outline = outline,
+                                style = Stroke(width = 1.dp.toPx()),
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.05f),
+                                        Color.White.copy(alpha = 0.1f), // Subtle bottom-right reflection
+                                        Color.Transparent
+                                    ),
+                                    start = Offset(rimEndX, rimEndY), // Inverted direction
+                                    end = Offset(rimStartX, rimStartY)
+                                )
+                            )
+                        }
+                } else {
+                    Modifier
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), shape)
+                }
+            ),
+        content = content
+    )
 }

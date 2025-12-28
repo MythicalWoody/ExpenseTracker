@@ -51,15 +51,8 @@ fun BackgroundPattern(modifier: Modifier = Modifier, isDarkTheme: Boolean = isSy
         val canvasWidth = size.width
         val canvasHeight = size.height
         
-        // Draw a base gradient mesh
-        drawRect(
-            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF120024), // Deep Purple
-                    Color(0xFF240012)  // Deep Red
-                )
-            )
-        )
+        // Removed base gradient mesh to keep only black background + shapes
+        // drawRect(brush = ...) 
 
         // Generate shapes based on actual canvas size
         val shapes = generateShapes(
