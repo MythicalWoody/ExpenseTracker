@@ -44,7 +44,7 @@ fun BackgroundPattern(modifier: Modifier = Modifier, isDarkTheme: Boolean = isSy
             )
         }
 
-    Canvas(modifier = Modifier
+    Canvas(modifier = modifier
         .fillMaxSize()
         .background(Color.Black)) {
         // Use Canvas actual size instead of screen configuration

@@ -51,11 +51,12 @@ fun TransactionsScreen(viewModel: ExpenseViewModel, onExpenseClick: (Long) -> Un
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource(state = hazeState)
             ) {
                 // Background pattern (strictly background) - THIS is what gets blurred
                 com.example.expencetrackerapp.ui.components.BackgroundPattern(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(state = hazeState)
                 )
 
                 Column(

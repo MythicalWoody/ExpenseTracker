@@ -1,7 +1,6 @@
 package com.example.expencetrackerapp.ui.components
 
-import android.graphics.RuntimeShader
-import android.os.Build
+import android.graphics.BlurMaskFilter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -12,13 +11,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.expencetrackerapp.util.LocalDeviceRotation
@@ -26,7 +30,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
-import org.intellij.lang.annotations.Language
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -48,24 +51,6 @@ enum class LightSourceDirection(val angleRad: Float) {
     LEFT(PI.toFloat())                     // 180 degrees
 }
 
-// Optimized Film Grain Shader
-@Language("AGSL")
-val NoiseShader = """
-    uniform float2 size;
-    uniform float alpha;
-    
-    // Gold Noise function for better distribution than standard random
-    float hash(float2 xy) {
-        return fract(tan(distance(xy * 1.61803398874989484820459, xy) * xy.x) * xy.y);
-    }
-
-    half4 main(float2 coord) {
-        float noise = hash(coord);
-        // Output white noise with controlled alpha
-        return half4(1.0, 1.0, 1.0, noise * alpha);
-    }
-"""
-
 @Composable
 fun GlassRefractiveBox(
     modifier: Modifier = Modifier,
@@ -74,18 +59,11 @@ fun GlassRefractiveBox(
     glareStrength: Float = 0.20f, // Controls surface reflection opacity (0.0 - 1.0)
     rimStrength: Float = 1.0f,    // Controls edge light opacity (0.0 - 1.0)
     rimWidth: Dp = 2.dp,          // Controls edge light thickness
+    glassThickness: Dp = 6.dp,    // Controls apparent thickness (volume)
     content: @Composable BoxScope.() -> Unit
 ) {
     val hazeState = LocalHazeState.current
     val (pitch, roll) = LocalDeviceRotation.current
-
-    val noiseShader = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            RuntimeShader(NoiseShader)
-        } else {
-            null
-        }
-    }
 
     Box(
         modifier = modifier
@@ -97,20 +75,14 @@ fun GlassRefractiveBox(
                             state = hazeState,
                             style = HazeStyle(
                                 blurRadius = 40.dp,
-                                tint = HazeTint(Color.White.copy(alpha = 0.03f))
+                                tint = HazeTint(Color.White.copy(alpha = 0.03f)),
+                                noiseFactor = 0.02f // Use Haze's built-in noise
                             )
                         )
                         .drawWithContent {
                             // Draw content first
                             drawContent()
                             
-                            // Re-enable noise for texture
-                            if (noiseShader != null) {
-                                noiseShader.setFloatUniform("size", size.width, size.height)
-                                noiseShader.setFloatUniform("alpha", 0.02f)
-                                drawRect(ShaderBrush(noiseShader), blendMode = BlendMode.Overlay)
-                            }
-
                             // ---------------------------------------------------------------------
                             // CONFIGURATION: LIGHT SOURCE ANGLE
                             // ---------------------------------------------------------------------
@@ -153,32 +125,79 @@ fun GlassRefractiveBox(
                             val rimEndX = (width / 2) - cos(rimAngle) * diagonal
                             val rimEndY = (height / 2) - sin(rimAngle) * diagonal
 
-                            drawOutline(
+                            // 3. GLASS THICKNESS / VOLUME SIMULATION
+                            // We use soft, highly blurred strokes to create a seamless transition.
+                            // The key is high blur radius relative to thickness to avoid "banding" or sharp edges.
+
+                            val thicknessPx = glassThickness.toPx()
+                            // Increase blur radius to be larger than the thickness itself for ultra-smooth blend
+                            val blurRadius = thicknessPx * 1.2f 
+
+                            // A) VOLUME FILL (Soft inner gradient)
+                            // A wide, soft wash that defines the glass body.
+                            // We reduce alpha and increase blur to make it "foggy" rather than "lined".
+                            drawBlurredBorder(
                                 outline = outline,
-                                style = Stroke(width = rimWidth.toPx()), // Configurable width
                                 brush = Brush.linearGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = rimStrength.coerceIn(0f, 1f)), // Configurable peak
-                                        Color.White.copy(alpha = (rimStrength * 0.3f).coerceIn(0f, 1f)), // Stronger mid-tone
-                                        Color.Black.copy(alpha = 0.15f)  // Dark shadow on the opposite side
+                                        Color.White.copy(alpha = 0.08f), // Lower alpha for subtlety
+                                        Color.White.copy(alpha = 0.02f),
+                                        Color.Black.copy(alpha = 0.05f)  // Very subtle shadow
                                     ),
                                     start = Offset(rimStartX, rimStartY),
                                     end = Offset(rimEndX, rimEndY)
-                                )
+                                ),
+                                strokeWidth = thicknessPx * 3.0f, // Wider stroke to cover more area smoothly
+                                blurRadius = blurRadius
                             )
-                            
-                            // 3. INNER BEVEL HIGHLIGHT (Fake 3D Thickness)
-                             drawOutline(
+
+                            // B) EXIT LIGHT / CAUSTIC (Soft back reflection)
+                            // This mimics the light catching the inner bevel on the far side.
+                            drawBlurredBorder(
                                 outline = outline,
-                                style = Stroke(width = 1.dp.toPx()),
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent, 
+                                        Color.White.copy(alpha = 0.05f),
+                                        Color.White.copy(alpha = 0.3f) // Soft but visible exit light
+                                    ),
+                                    start = Offset(rimStartX, rimStartY),
+                                    end = Offset(rimEndX, rimEndY)
+                                ),
+                                strokeWidth = thicknessPx * 3.0f,
+                                blurRadius = blurRadius
+                            )
+
+                            // C) INNER GLOW (Ambient Refraction)
+                            // An additional very soft pass to bind the layers together.
+                            drawBlurredBorder(
+                                outline = outline,
                                 brush = Brush.linearGradient(
                                     colors = listOf(
                                         Color.White.copy(alpha = 0.05f),
-                                        Color.Transparent, // Removed white from shadow side
                                         Color.Transparent
                                     ),
-                                    start = Offset(rimEndX, rimEndY), // Inverted direction
-                                    end = Offset(rimStartX, rimStartY)
+                                    start = Offset(rimStartX, rimStartY),
+                                    end = Offset(rimEndX, rimEndY)
+                                ),
+                                strokeWidth = thicknessPx * 4.0f,
+                                blurRadius = thicknessPx * 2.0f // Very high blur for ambient feel
+                            )
+
+                            // 4. SHARP OUTER RIM
+                            // Kept crisp to define the physical boundary.
+                            drawOutline(
+                                outline = outline,
+                                style = Stroke(width = rimWidth.toPx()),
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = rimStrength.coerceIn(0f, 1f)),
+                                        Color.White.copy(alpha = (rimStrength * 0.3f).coerceIn(0f, 1f)),
+                                        Color.Black.copy(alpha = 0.1f)
+                                    ),
+                                    start = Offset(rimStartX, rimStartY),
+                                    end = Offset(rimEndX, rimEndY)
                                 )
                             )
                         }
@@ -190,4 +209,40 @@ fun GlassRefractiveBox(
             ),
         content = content
     )
+}
+
+/**
+ * Helper to draw a blurred border for soft depth effects.
+ * This softens the inner edge of the stroke to merge seamlessly with the content.
+ */
+fun DrawScope.drawBlurredBorder(
+    outline: Outline,
+    brush: Brush,
+    strokeWidth: Float,
+    blurRadius: Float
+) {
+    drawIntoCanvas { canvas ->
+        val paint = Paint()
+        paint.style = PaintingStyle.Stroke
+        paint.strokeWidth = strokeWidth
+        
+        // Apply brush to paint
+        brush.applyTo(size, paint, 1.0f)
+        
+        // Apply blur to native paint
+        val frameworkPaint = paint.asFrameworkPaint()
+        frameworkPaint.maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
+        
+        when (outline) {
+            is Outline.Generic -> canvas.drawPath(outline.path, paint)
+            is Outline.Rounded -> {
+                val path = Path().apply { addRoundRect(outline.roundRect) }
+                canvas.drawPath(path, paint)
+            }
+            is Outline.Rectangle -> {
+                val path = Path().apply { addRect(outline.rect) }
+                canvas.drawPath(path, paint)
+            }
+        }
+    }
 }

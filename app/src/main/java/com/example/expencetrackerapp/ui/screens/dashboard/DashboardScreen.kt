@@ -84,10 +84,13 @@ fun DashboardScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource(state = hazeState)
             ) {
                 // New Animated Aurora Background - THIS is what gets blurred
-                AuroraBackground(modifier = Modifier.fillMaxSize())
+                AuroraBackground(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(state = hazeState)
+                )
 
                 // Main content
                 LazyColumn(
